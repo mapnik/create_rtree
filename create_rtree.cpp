@@ -35,27 +35,13 @@
 // boost.iostreams
 //#include <boost/iostreams/device/mapped_file.hpp>
 // grammar
-//#include <mapnik/geometry_adapters.hpp>
-//#include <mapnik/json/extract_bounding_box_grammar.hpp>
-// mapnik
-#include <mapnik/boolean.hpp>
-#include <mapnik/unicode.hpp>
-#include <mapnik/util/utf_conv_win.hpp>
-#include <mapnik/feature.hpp>
-#include <mapnik/feature_factory.hpp>
-#include <mapnik/feature_kv_iterator.hpp>
-#include <mapnik/value_types.hpp>
-#include <mapnik/box2d.hpp>
-#include <mapnik/debug.hpp>
-#include <mapnik/proj_transform.hpp>
-#include <mapnik/projection.hpp>
-#include <mapnik/util/variant.hpp>
-#include <mapnik/util/file_io.hpp>
-#include <mapnik/util/geometry_to_ds_type.hpp>
 #include <mapnik/make_unique.hpp>
+#include <mapnik/geometry.hpp>
 #include <mapnik/geometry_adapters.hpp>
 #include <mapnik/json/feature_collection_grammar.hpp>
 #include <mapnik/json/extract_bounding_box_grammar_impl.hpp>
+// mapnik
+
 #include <boost/version.hpp>
 #include <boost/geometry/index/rtree.hpp>
 
@@ -86,12 +72,12 @@ int main (int argc, char** argv)
 {
     // r-tree
     using box_type = mapnik::box2d<double>;
-    using item_type = box_type;//std::pair<box_type, std::pair<std::size_t, std::size_t> >;
+    using item_type = std::pair<box_type, std::pair<std::size_t, std::size_t> >;
 
-    using allocator_type =  boost::interprocess::allocator<item_type, boost::interprocess::managed_mapped_file::segment_manager> ;
-    using indexable_type = boost::geometry::index::indexable<item_type>;
-    using equal_to_type = boost::geometry::index::equal_to<item_type>;
-    using spatial_index_type = boost::geometry::index::rtree<item_type, geojson_linear<16,4>, indexable_type, equal_to_type, allocator_type>;
+    //using allocator_type =  boost::interprocess::allocator<item_type, boost::interprocess::managed_mapped_file::segment_manager> ;
+    //using indexable_type = boost::geometry::index::indexable<item_type>;
+    //using equal_to_type = boost::geometry::index::equal_to<item_type>;
+    using spatial_index_type = boost::geometry::index::rtree<item_type, geojson_linear<16,4>>;
     // parser
     using base_iterator_type = char const*;
     const static mapnik::json::extract_bounding_box_grammar<base_iterator_type> bbox_grammar;
@@ -127,9 +113,10 @@ int main (int argc, char** argv)
         }
         std::cerr << "Count=" << boxes.size() << std::endl;
         // bulk insert initialise r-tree
-        //std::unique_ptr<spatial_index_type> tree = std::make_unique<spatial_index_type>(boxes);
-        //std::cerr << "R-tree size= " << tree->size() << std::endl;
+        std::unique_ptr<spatial_index_type> tree = std::make_unique<spatial_index_type>(boxes);
+        std::cerr << "R-tree size= " << tree->size() << std::endl;
 
+#if 0
         std::string index_name = std::string(argv[1]) + ".index";
 
         boost::interprocess::managed_mapped_file index(boost::interprocess::open_or_create, index_name.c_str(), 1024*1024);
@@ -140,6 +127,7 @@ int main (int argc, char** argv)
             tree->insert(std::get<0>(item));
         }
         std::cerr << "R-tree size= " << tree->size() << std::endl;
+#endif
     }
 
     return EXIT_SUCCESS;
