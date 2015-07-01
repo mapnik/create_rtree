@@ -1,0 +1,23 @@
+local BOOST_DIR = "/opt/boost" ;
+local MAPNIK_DIR = "/opt/mapnik" ;
+local MAPNIK_DEPS_DIR = "/opt/mapnik_deps" ;
+
+lib mapnik : : <name>mapnik <search>$(MAPNIK_DIR)/lib ;
+lib mapnik-json : : <name>mapnik-json <search>$(MAPNIK_DIR)/lib ;
+lib icuuc : : <name>icuuc <search>/opt/icu/lib ;
+lib system : : <name>boost_system <search>$(BOOST_DIR)/lib ;
+lib timer : chrono : <name>boost_timer <search>$(BOOST_DIR)/lib ;
+lib chrono : system : <name>boost_chrono <search>$(BOOST_DIR)/lib ;
+lib iostreams : : <name>boost_iostreams <search>$(BOOST_DIR)/lib ;
+
+exe create_rtree :
+    create_rtree.cpp
+    .//mapnik
+    # .//mapnik-json
+    #.//icuuc
+    .//timer
+    :
+    <include>$(BOOST_DIR)/include
+    <include>/opt/icu/include
+    <include>/opt/mapnik/include
+    ;
