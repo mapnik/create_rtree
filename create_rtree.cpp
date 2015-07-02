@@ -152,7 +152,11 @@ int main (int argc, char** argv)
 #if 1
         {
             boost::timer::auto_cpu_timer t;
-            boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "spatial-index", 64 * 1024 * 1024);
+            std::cerr << "size of item = " << sizeof(mapnik::json::boxes::value_type) << std::endl;
+            static constexpr std::size_t magic_number = 64;
+            std::size_t segment_size = magic_number * boxes.size();
+            std::cerr << "segment size = " << segment_size << std::endl;
+            boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "spatial-index", segment_size);
             allocator_type alloc(segment.get_segment_manager());
             spatial_index_type * tree = segment.construct<spatial_index_type>("spatial-index")(std::move(boxes),
                                                                                                geojson_linear<16,4>(),
@@ -161,6 +165,13 @@ int main (int argc, char** argv)
             if (tree)
             {
                 std::cerr << "R-tree size= " << tree->size() << std::endl;
+                auto const& bounds = tree->bounds();
+                mapnik::box2d<double> bbox(boost::geometry::get<0>(bounds.min_corner()),
+                                           boost::geometry::get<1>(bounds.min_corner()),
+                                           boost::geometry::get<0>(bounds.max_corner()),
+                                           boost::geometry::get<1>(bounds.max_corner()));
+
+                std::cerr << bbox << std::endl;
             }
         }
 #endif
