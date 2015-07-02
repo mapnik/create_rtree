@@ -73,11 +73,11 @@ int main (int argc, char** argv)
     // r-tree
     using box_type = mapnik::box2d<double>;
     using item_type = std::pair<box_type, std::pair<std::size_t, std::size_t> >;
-
-    //using allocator_type =  boost::interprocess::allocator<item_type, boost::interprocess::managed_mapped_file::segment_manager> ;
-    //using indexable_type = boost::geometry::index::indexable<item_type>;
-    //using equal_to_type = boost::geometry::index::equal_to<item_type>;
-    using spatial_index_type = boost::geometry::index::rtree<item_type, geojson_linear<16,4>>;
+    using allocator_type =  boost::interprocess::allocator<item_type, boost::interprocess::managed_mapped_file::segment_manager> ;
+    using indexable_type = boost::geometry::index::indexable<item_type>;
+    using equal_to_type = boost::geometry::index::equal_to<item_type>;
+    //using spatial_index_type = boost::geometry::index::rtree<item_type, geojson_linear<16,4>>;
+    using spatial_index_type = boost::geometry::index::rtree<item_type, geojson_linear<16,4>, indexable_type, equal_to_type, allocator_type>;
     // parser
     using base_iterator_type = char const*;
     const static mapnik::json::extract_bounding_box_grammar<base_iterator_type> bbox_grammar;
@@ -112,19 +112,20 @@ int main (int argc, char** argv)
             return EXIT_FAILURE;
         }
         std::cerr << "Count=" << boxes.size() << std::endl;
+#if 0
         // bulk insert initialise r-tree
         std::unique_ptr<spatial_index_type> tree = std::make_unique<spatial_index_type>(boxes);
         std::cerr << "R-tree size= " << tree->size() << std::endl;
+#endif
 
-#if 0
+#if 1
         std::string index_name = std::string(argv[1]) + ".index";
-
-        boost::interprocess::managed_mapped_file index(boost::interprocess::open_or_create, index_name.c_str(), 1024*1024);
+        boost::interprocess::managed_mapped_file index(boost::interprocess::open_or_create, index_name.c_str(), 64 * 1024 * 1024);
         allocator_type alloc(index.get_segment_manager());
         spatial_index_type * tree = index.find_or_construct<spatial_index_type>("spatial-index")(geojson_linear<16,4>(), indexable_type(), equal_to_type(), alloc);
         for (auto const& item : boxes)
         {
-            tree->insert(std::get<0>(item));
+            tree->insert(item);
         }
         std::cerr << "R-tree size= " << tree->size() << std::endl;
 #endif
