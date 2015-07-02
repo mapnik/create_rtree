@@ -30,6 +30,9 @@
 // boost.interprocess
 #include <boost/interprocess/managed_mapped_file.hpp>
 #include <boost/interprocess/mapped_region.hpp>
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/allocators/allocator.hpp>
+
 #include <mapnik/mapped_memory_cache.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 // boost.iostreams
@@ -70,6 +73,13 @@ struct options_type<geojson_linear<Max,Min> >
 
 int main (int argc, char** argv)
 {
+
+    struct shm_remove
+    {
+        shm_remove() { boost::interprocess::shared_memory_object::remove("spatial-index"); }
+        ~shm_remove(){ boost::interprocess::shared_memory_object::remove("spatial-index"); }
+    } remover;
+
     // r-tree
     using box_type = mapnik::box2d<double>;
     using item_type = std::pair<box_type, std::pair<std::size_t, std::size_t> >;
@@ -102,32 +112,58 @@ int main (int argc, char** argv)
     char const* end = start + (*mapped_region)->get_size();
     std::cerr << "file size = " << (*mapped_region)->get_size() << std::endl;
     {
-        boost::timer::auto_cpu_timer t;
+
         mapnik::json::boxes boxes;
-        boost::spirit::standard::space_type space;
-        bool result = boost::spirit::qi::phrase_parse(start, end, (bbox_grammar)(boost::phoenix::ref(boxes)) , space);
-        if (!result)
         {
-            std::cerr << "Failed to parse " << std::string(argv[1]) << std::endl;
-            return EXIT_FAILURE;
+            boost::timer::auto_cpu_timer t;
+            boost::spirit::standard::space_type space;
+            bool result = boost::spirit::qi::phrase_parse(start, end, (bbox_grammar)(boost::phoenix::ref(boxes)) , space);
+            if (!result)
+            {
+                std::cerr << "Failed to parse " << std::string(argv[1]) << std::endl;
+                return EXIT_FAILURE;
+            }
+            std::cerr << "Count=" << boxes.size() << std::endl;
         }
-        std::cerr << "Count=" << boxes.size() << std::endl;
 #if 0
-        // bulk insert initialise r-tree
-        std::unique_ptr<spatial_index_type> tree = std::make_unique<spatial_index_type>(boxes);
-        std::cerr << "R-tree size= " << tree->size() << std::endl;
+        {
+            // bulk insert initialise r-tree
+            std::unique_ptr<spatial_index_type> tree = std::make_unique<spatial_index_type>(boxes);
+            std::cerr << "R-tree size= " << tree->size() << std::endl;
+        }
+#endif
+
+#if 0
+        {
+            boost::timer::auto_cpu_timer t;
+            std::string index_name = std::string(argv[1]) + ".index";
+            boost::interprocess::managed_mapped_file index(boost::interprocess::open_or_create, index_name.c_str(), 64 * 1024 * 1024);
+            allocator_type alloc(index.get_segment_manager());
+            spatial_index_type * tree = index.find_or_construct<spatial_index_type>("spatial-index")(geojson_linear<16,4>(), indexable_type(), equal_to_type(), alloc);
+            tree->clear();
+            for (auto const& item : boxes)
+            {
+                tree->insert(item);
+            }
+            std::cerr << "R-tree size= " << tree->size() << std::endl;
+        }
 #endif
 
 #if 1
-        std::string index_name = std::string(argv[1]) + ".index";
-        boost::interprocess::managed_mapped_file index(boost::interprocess::open_or_create, index_name.c_str(), 64 * 1024 * 1024);
-        allocator_type alloc(index.get_segment_manager());
-        spatial_index_type * tree = index.find_or_construct<spatial_index_type>("spatial-index")(geojson_linear<16,4>(), indexable_type(), equal_to_type(), alloc);
-        for (auto const& item : boxes)
         {
-            tree->insert(item);
+            boost::timer::auto_cpu_timer t;
+            boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "spatial-index", 64 * 1024 * 1024);
+            allocator_type alloc(segment.get_segment_manager());
+            spatial_index_type * tree = segment.construct<spatial_index_type>("spatial-index")(geojson_linear<16,4>(), indexable_type(), equal_to_type(), alloc);
+            if (tree)
+            {
+                for (auto const& item : boxes)
+                {
+                    tree->insert(item);
+                }
+                std::cerr << "R-tree size= " << tree->size() << std::endl;
+            }
         }
-        std::cerr << "R-tree size= " << tree->size() << std::endl;
 #endif
     }
 
