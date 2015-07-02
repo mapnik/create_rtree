@@ -154,13 +154,12 @@ int main (int argc, char** argv)
             boost::timer::auto_cpu_timer t;
             boost::interprocess::managed_shared_memory segment(boost::interprocess::create_only, "spatial-index", 64 * 1024 * 1024);
             allocator_type alloc(segment.get_segment_manager());
-            spatial_index_type * tree = segment.construct<spatial_index_type>("spatial-index")(geojson_linear<16,4>(), indexable_type(), equal_to_type(), alloc);
+            spatial_index_type * tree = segment.construct<spatial_index_type>("spatial-index")(std::move(boxes),
+                                                                                               geojson_linear<16,4>(),
+                                                                                               indexable_type(),
+                                                                                               equal_to_type(), alloc);
             if (tree)
             {
-                for (auto const& item : boxes)
-                {
-                    tree->insert(item);
-                }
                 std::cerr << "R-tree size= " << tree->size() << std::endl;
             }
         }
